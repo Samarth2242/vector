@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import CodeEditor from './components/CodeEditor';
+import RenderOptions from './components/RenderOptions';
+import JobStatus from './components/JobStatus';
+
 
 // API and WebSocket URLs
 const API_URL = "http://localhost:8000";
 const WS_URL = "ws://localhost:8000";
 
-function AnimationRenderer() {
+function App() {
   const [formData, setFormData] = useState({
     input_code: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
   <rect width="800" height="500" fill="#0a0e17"/>
@@ -129,180 +136,31 @@ function AnimationRenderer() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-6">SVG/HTML Animation Renderer</h1>
-
-      <form onSubmit={handleSubmit} className="space-y-6 mb-8">
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Input Type
-            <select
-              name="input_type"
-              value={formData.input_type}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-            >
-              <option value="svg">SVG</option>
-              <option value="html">HTML</option>
-            </select>
-          </label>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Input Code
-            <textarea
-              name="input_code"
-              value={formData.input_code}
-              onChange={handleInputChange}
-              rows="10"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border font-mono text-sm"
-              required
+    <div className="bg-gray-900 min-h-screen text-white">
+      <Header />
+      <main className="container mx-auto p-4">
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <CodeEditor formData={formData} handleInputChange={handleInputChange} />
+            <RenderOptions
+              formData={formData}
+              handleInputChange={handleInputChange}
+              handleSubmit={handleSubmit}
+              isLoading={isLoading}
             />
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Duration (seconds)
-              <input
-                type="number"
-                name="duration"
-                value={formData.duration}
-                onChange={handleInputChange}
-                min="1"
-                max="60"
-                step="0.5"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                required
-              />
-            </label>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Bitrate
-              <select
-                name="bitrate"
-                value={formData.bitrate}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-              >
-                <option value="4000k">Low (4000k)</option>
-                <option value="8000k">Medium (8000k)</option>
-                <option value="16000k">High (16000k)</option>
-                <option value="24000k">Ultra (24000k)</option>
-              </select>
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Scale Factor
-              <input
-                type="number"
-                name="scale_factor"
-                value={formData.scale_factor}
-                onChange={handleInputChange}
-                min="1"
-                max="4"
-                step="0.5"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-              />
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Width × Height
-              <div className="flex space-x-2">
-                <input
-                  type="number"
-                  name="width"
-                  value={formData.width}
-                  onChange={handleInputChange}
-                  min="100"
-                  max="3840"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                />
-                <span className="mt-3">×</span>
-                <input
-                  type="number"
-                  name="height"
-                  value={formData.height}
-                  onChange={handleInputChange}
-                  min="100"
-                  max="2160"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                />
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <button
-            type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Processing...' : 'Render Animation'}
-          </button>
-        </div>
-      </form>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-          <strong className="font-bold">Error: </strong>
-          <span className="block sm:inline">{error}</span>
-        </div>
-      )}
-
-      {jobId && jobStatus && (
-        <div className="border rounded-md p-4 mb-4">
-          <h2 className="text-lg font-semibold mb-2">Job Status</h2>
-          <p>
-            <strong>Job ID:</strong> {jobId}
-          </p>
-          <p>
-            <strong>Status:</strong> {jobStatus.status}
-          </p>
-          {jobStatus.status === 'processing' && (
-            <div className="w-full bg-gray-200 rounded-full h-2.5 my-4">
-              <div className="bg-blue-600 h-2.5 rounded-full w-1/2"></div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {videoUrl && (
-        <div className="border rounded-md p-4">
-          <h2 className="text-lg font-semibold mb-4">Result</h2>
-          <video controls className="w-full border rounded mb-4">
-            <source src={videoUrl} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
-
-          <div className="flex space-x-2">
-            <a
-              href={videoUrl}
-              download
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Download Video
-            </a>
-            <button
-              onClick={handleCleanup}
-              className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Clear Results
-            </button>
-          </div>
-        </div>
-      )}
+        </form>
+        <JobStatus
+          jobId={jobId}
+          jobStatus={jobStatus}
+          error={error}
+          videoUrl={videoUrl}
+          handleCleanup={handleCleanup}
+        />
+      </main>
+      <Footer />
     </div>
   );
 }
 
-export default AnimationRenderer;
+export default App;
