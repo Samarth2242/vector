@@ -15,9 +15,11 @@ import {
   CircularProgress,
   Box,
   Alert,
+  Tooltip,
 } from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { Download, Trash2 } from 'lucide-react';
 
 // API and WebSocket URLs
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
@@ -27,14 +29,18 @@ const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#2196f3',
+      main: '#ffffff',
     },
     secondary: {
-      main: '#f50057',
+      main: '#bbbbbb',
     },
     background: {
-      default: '#121212',
-      paper: '#1e1e1e',
+      default: '#000000',
+      paper: '#1c1c1c',
+    },
+    text: {
+      primary: '#ffffff',
+      secondary: '#bbbbbb',
     },
   },
   shape: {
@@ -69,6 +75,8 @@ function AnimationRenderer() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
+  const [previewCode, setPreviewCode] = useState(formData.input_code);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const ws = useRef(null);
 
   const handleInputChange = (e) => {
@@ -192,40 +200,46 @@ function AnimationRenderer() {
                     />
                   </Grid>
                   <Grid item xs={6}>
-                    <TextField
-                      name="duration"
-                      label="Duration (s)"
-                      type="number"
-                      value={formData.duration}
-                      onChange={handleInputChange}
-                      fullWidth
-                    />
+                    <Tooltip title="The duration of the animation in seconds.">
+                      <TextField
+                        name="duration"
+                        label="Duration (s)"
+                        type="number"
+                        value={formData.duration}
+                        onChange={handleInputChange}
+                        fullWidth
+                      />
+                    </Tooltip>
                   </Grid>
                   <Grid item xs={6}>
-                  <FormControl fullWidth>
-                      <InputLabel>Bitrate</InputLabel>
-                      <Select
-                        name="bitrate"
-                        value={formData.bitrate}
-                        label="Bitrate"
-                        onChange={handleSelectChange}
-                      >
-                        <MenuItem value="4000k">Low (4000k)</MenuItem>
-                        <MenuItem value="8000k">Medium (8000k)</MenuItem>
-                        <MenuItem value="16000k">High (16000k)</MenuItem>
-                        <MenuItem value="24000k">Ultra (24000k)</MenuItem>
-                      </Select>
-                    </FormControl>
+                    <Tooltip title="The bitrate of the output video. Higher values result in better quality but larger file sizes.">
+                      <FormControl fullWidth>
+                        <InputLabel>Bitrate</InputLabel>
+                        <Select
+                          name="bitrate"
+                          value={formData.bitrate}
+                          label="Bitrate"
+                          onChange={handleSelectChange}
+                        >
+                          <MenuItem value="4000k">Low (4000k)</MenuItem>
+                          <MenuItem value="8000k">Medium (8000k)</MenuItem>
+                          <MenuItem value="16000k">High (16000k)</MenuItem>
+                          <MenuItem value="24000k">Ultra (24000k)</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Tooltip>
                   </Grid>
                   <Grid item xs={6}>
-                    <TextField
-                      name="scale_factor"
-                      label="Scale Factor"
-                      type="number"
-                      value={formData.scale_factor}
-                      onChange={handleInputChange}
-                      fullWidth
-                    />
+                    <Tooltip title="The device scale factor to use for rendering. Higher values result in sharper images.">
+                      <TextField
+                        name="scale_factor"
+                        label="Scale Factor"
+                        type="number"
+                        value={formData.scale_factor}
+                        onChange={handleInputChange}
+                        fullWidth
+                      />
+                    </Tooltip>
                   </Grid>
                   <Grid item xs={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -246,7 +260,20 @@ function AnimationRenderer() {
                       />
                     </Box>
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sx={{ display: 'flex', gap: 2 }}>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      onClick={() => {
+                        setIsPreviewLoading(true);
+                        setTimeout(() => {
+                          setPreviewCode(formData.input_code);
+                          setIsPreviewLoading(false);
+                        }, 500);
+                      }}
+                    >
+                      Update Preview
+                    </Button>
                     <Button
                       type="submit"
                       variant="contained"
@@ -264,7 +291,25 @@ function AnimationRenderer() {
           </Card>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Card sx={{ boxShadow: 3, height: '100%' }}>
+            <CardHeader title="Live Preview" />
+            <CardContent sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {isPreviewLoading ? (
+                <CircularProgress />
+              ) : (
+                <iframe
+                  srcDoc={previewCode}
+                  title="Live Preview"
+                  width="100%"
+                  height="400px"
+                  style={{ border: 'none', borderRadius: '8px' }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, mt: 4 }}>
             {error && <Alert severity="error">{error}</Alert>}
 
             {jobId && jobStatus && (
