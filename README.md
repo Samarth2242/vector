@@ -38,6 +38,18 @@ npm run dev
 ```
 The command will output a local URL (usually `http://localhost:5173`) that you can open in your web browser to use the application.
 
+#### Environment Variables
+
+For the frontend to be able to communicate with the backend, it needs to know the backend's URL. This is configured using environment variables.
+
+For local development, create a file named `.env` in the `animation-converter-frontend` directory by copying the example file:
+```bash
+cp animation-converter-frontend/.env.example animation-converter-frontend/.env
+```
+The default values in this file point to the local backend server and should work without changes.
+
+For production, you will need to set these environment variables in your hosting provider's dashboard (e.g., Vercel). See the Deployment section for more details.
+
 ## Deployment
 
 ### Frontend (Vercel)
@@ -46,7 +58,10 @@ The command will output a local URL (usually `http://localhost:5173`) that you c
 2.  Go to [Vercel](https://vercel.com) and create a new project.
 3.  Connect your GitHub repository.
 4.  Vercel will automatically detect that you are using Vite and will configure the build settings. The `vercel.json` file in the `animation-converter-frontend` directory will ensure the correct settings are used.
-5.  Deploy!
+5.  **Set Environment Variables:** Before deploying, you need to tell your frontend where to find your backend API. In your Vercel project settings, go to the "Environment Variables" section and add the following:
+    *   `VITE_API_URL`: The public URL of your deployed backend (e.g., `https://your-backend.fly.dev`).
+    *   `VITE_WS_URL`: The public WebSocket URL of your deployed backend (e.g., `wss://your-backend.fly.dev`).
+6.  Deploy!
 
 ### Backend (Fly.io)
 
