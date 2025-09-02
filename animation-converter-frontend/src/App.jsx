@@ -8,8 +8,8 @@ import JobStatus from './components/JobStatus';
 
 
 // API and WebSocket URLs
-const API_URL = "http://localhost:8000";
-const WS_URL = "ws://localhost:8000";
+const API_URL = "http://localhost:8001";
+const WS_URL = "ws://localhost:8001";
 
 function App() {
   const [formData, setFormData] = useState({
