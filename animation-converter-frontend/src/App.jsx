@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-// API URL - replace with your actual backend URL
+// API and WebSocket URLs
 const API_URL = "http://localhost:8000";
+const WS_URL = "ws://localhost:8000";
 
 function AnimationRenderer() {
   const [formData, setFormData] = useState({
@@ -24,6 +25,7 @@ function AnimationRenderer() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
+  const ws = useRef(null);
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -71,40 +73,43 @@ function AnimationRenderer() {
     }
   };
 
-  // Poll for job status
+  // WebSocket connection for real-time status updates
   useEffect(() => {
-    let intervalId;
+    if (!jobId) return;
 
-    if (jobId) {
-      intervalId = setInterval(async () => {
-        try {
-          const response = await fetch(`${API_URL}/status/${jobId}`);
+    const socketUrl = `${WS_URL}/ws/${jobId}`;
+    ws.current = new WebSocket(socketUrl);
 
-          if (!response.ok) {
-            throw new Error(`Error: ${response.status}`);
-          }
+    ws.current.onopen = () => {
+      console.log("WebSocket connection established");
+    };
 
-          const statusData = await response.json();
-          setJobStatus(statusData);
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setJobStatus(data);
 
-          if (statusData.status === 'completed') {
-            clearInterval(intervalId);
-            setVideoUrl(`${API_URL}/download/${jobId}`);
-          } else if (statusData.status === 'error') {
-            clearInterval(intervalId);
-            setError(`Rendering error: ${statusData.error}`);
-          }
-        } catch (err) {
-          console.error('Failed to fetch job status:', err);
-          clearInterval(intervalId);
-          setError(`Failed to check job status: ${err.message}`);
-        }
-      }, 2000); // Check every 2 seconds
-    }
+      if (data.status === 'completed') {
+        setVideoUrl(`${API_URL}/download/${jobId}`);
+        ws.current.close();
+      } else if (data.status === 'error') {
+        setError(`Rendering error: ${data.error}`);
+        ws.current.close();
+      }
+    };
 
+    ws.current.onclose = () => {
+      console.log("WebSocket connection closed");
+    };
+
+    ws.current.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      setError("WebSocket connection error.");
+    };
+
+    // Clean up the WebSocket connection on component unmount or when jobId changes
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (ws.current) {
+        ws.current.close();
       }
     };
   }, [jobId]);

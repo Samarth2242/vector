@@ -7,110 +7,38 @@ import base64
 import tempfile
 import uuid
 import numpy as np
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from PIL import Image
 from moviepy import *
 from playwright.async_api import async_playwright
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Body, Response
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Body, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pathlib import Path
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-import time
-import io
-import os
-import tempfile
 
-def capture_animation_frames_selenium(input_code: str, input_type: str, duration: float, 
-                                     width: int, height: int, 
-                                     target_fps: int = 60,
-                                     device_scale_factor: float = 2.0):
-    """
-    Captures high-quality frames using Selenium WebDriver with precise duration control.
-    Returns a list of frames (numpy arrays).
-    """
-    html_content = create_html_content(input_code, input_type)
-    
-    # Write HTML to a temporary file
-    with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html') as f:
-        html_path = f.name
-        f.write(html_content)
-    
-    frames = []
-    frame_interval = 1.0 / target_fps  # Time between frames in seconds
-    total_frames_needed = int(duration * target_fps)
-    
-    try:
-        # Set up Chrome options
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument(f"--window-size={width},{height}")
-        chrome_options.add_argument("--force-device-scale-factor={}".format(device_scale_factor))
-        
-        # Initialize WebDriver
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-        
-        # Set window size
-        driver.set_window_size(width, height)
-        
-        # Navigate to the HTML file
-        file_url = "file:///" + os.path.abspath(html_path).replace("\\", "/")
-        driver.get(file_url)
-        
-        # Allow animations to initialize
-        time.sleep(2)
-        
-        print(f"Capturing {total_frames_needed} frames at {target_fps} FPS for {duration} seconds...")
-        start_time = time.monotonic()
-        
-        # Use a fixed number of frames approach rather than time-based
-        frames_captured = 0
-        while frames_captured < total_frames_needed:
-            try:
-                # Capture screenshot
-                screenshot = driver.get_screenshot_as_png()
-                img = Image.open(io.BytesIO(screenshot))
-                frames.append(np.array(img))
-                frames_captured += 1
-                
-                # Sleep to maintain the target frame rate
-                # Adjust sleep time based on elapsed time to maintain accurate frame rate
-                elapsed = time.monotonic() - start_time
-                expected_elapsed = frames_captured * frame_interval
-                if expected_elapsed > elapsed:
-                    time.sleep(expected_elapsed - elapsed)
-                    
-            except Exception as e:
-                print(f"Error capturing screenshot: {e}")
-        
-        actual_duration = time.monotonic() - start_time
-        actual_fps = len(frames) / actual_duration if actual_duration > 0 else target_fps
-        print(f"Captured {len(frames)} frames over {actual_duration:.2f} seconds (Average FPS: {actual_fps:.2f})")
-        
-    except Exception as e:
-        print(f"Failed to capture frames with Selenium: {e}")
-        raise
-    finally:
-        # Clean up
-        if 'driver' in locals():
-            driver.quit()
-        
-        if os.path.exists(html_path):
-            try:
-                os.remove(html_path)
-            except Exception as e:
-                print(f"Failed to remove temporary file {html_path}: {e}")
-    
-    if not frames:
-        raise ValueError("No frames were captured. Check your input and try again.")
-    
-    # Enforce the exact duration by explicitly returning the target_fps
-    return frames, target_fps
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, WebSocket] = {}
+
+    async def connect(self, job_id: str, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections[job_id] = websocket
+
+    def disconnect(self, job_id: str):
+        if job_id in self.active_connections:
+            del self.active_connections[job_id]
+
+    async def send_status_update(self, job_id: str, status: str, message: str, error: Optional[str] = None):
+        if job_id in self.active_connections:
+            websocket = self.active_connections[job_id]
+            data = {"status": status, "message": message}
+            if error:
+                data["error"] = error
+            await websocket.send_json(data)
+
+manager = ConnectionManager()
+
 
 # Create output directory if it doesn't exist
 OUTPUT_DIR = Path("./animation_outputs")
@@ -132,13 +60,14 @@ app.add_middleware(
 job_status = {}
 
 class AnimationRequest(BaseModel):
-    input_code: str = Field(..., description="SVG or HTML code to animate")
-    input_type: str = Field(..., description="Type of input (svg or html)")
-    duration: float = Field(5.0, description="Duration of animation capture in seconds", ge=1, le=60)
-    bitrate: Optional[str] = Field("8000k", description="Video bitrate (e.g., '8000k')")
-    scale_factor: Optional[float] = Field(2.0, description="Device scale factor for rendering (1.0-4.0)", ge=1.0, le=4.0)
-    width: Optional[int] = Field(800, description="Output width in pixels", ge=100, le=3840)
-    height: Optional[int] = Field(500, description="Output height in pixels", ge=100, le=2160)
+    job_id: Optional[str] = Field(None, description="Optional job ID")
+    input_code: str
+    input_type: str
+    duration: float
+    bitrate: Optional[str]
+    scale_factor: Optional[float]
+    width: Optional[int]
+    height: Optional[int]
 
 class JobResponse(BaseModel):
     job_id: str
@@ -306,7 +235,7 @@ async def animation_to_mp4(input_code: str, input_type: str, duration_seconds: f
     width, height = frame_size
     
     # Use the synchronous Selenium function
-    frames, fps = capture_animation_frames_selenium(
+    frames, fps = await capture_animation_frames_playwright(
         input_code, input_type, duration_seconds, width, height, target_fps, device_scale_factor
     )
     
@@ -314,6 +243,7 @@ async def animation_to_mp4(input_code: str, input_type: str, duration_seconds: f
         raise ValueError("No frames were captured. Check your input and try again.")
     
     print(f"Creating high-quality video clip from {len(frames)} frames at {fps} FPS...")
+    print("This is the updated code.")
     
     # Create the clip with the exact FPS specified
     clip = ImageSequenceClip(frames, fps=fps)
@@ -321,11 +251,6 @@ async def animation_to_mp4(input_code: str, input_type: str, duration_seconds: f
     # Calculate expected duration and log it
     expected_duration = len(frames) / fps
     print(f"Expected clip duration: {expected_duration:.2f}s (requested: {duration_seconds:.2f}s)")
-    
-    # Explicitly set the duration if needed
-    if abs(expected_duration - duration_seconds) > 0.1:  # If more than 0.1s difference
-        print(f"Adjusting clip duration from {expected_duration:.2f}s to {duration_seconds:.2f}s")
-        clip = clip.set_duration(duration_seconds)
     
     print(f"Writing video to {output_path} with bitrate {bitrate}...")
     
@@ -359,6 +284,7 @@ async def process_animation_job(job_id: str, params: Dict[str, Any]):
     """Background task to process animation rendering"""
     try:
         job_status[job_id]["status"] = "processing"
+        await manager.send_status_update(job_id, "processing", "Starting animation rendering...")
         
         # Create output filename
         output_filename = f"{job_id}.mp4"
@@ -371,7 +297,7 @@ async def process_animation_job(job_id: str, params: Dict[str, Any]):
             duration_seconds=params["duration"],
             frame_size=(params["width"], params["height"]),
             output_path=str(output_path),
-            target_fps=60,  # Fixed at 60 FPS for smooth playback
+            target_fps=60,
             bitrate=params["bitrate"],
             device_scale_factor=params["scale_factor"]
         )
@@ -379,12 +305,24 @@ async def process_animation_job(job_id: str, params: Dict[str, Any]):
         # Update job status
         job_status[job_id]["status"] = "completed"
         job_status[job_id]["output_path"] = str(output_path)
+        await manager.send_status_update(job_id, "completed", "Animation rendered successfully.")
         
     except Exception as e:
-        # Update job status with error
         job_status[job_id]["status"] = "error"
         job_status[job_id]["error"] = str(e)
+        await manager.send_status_update(job_id, "error", "An error occurred during rendering.", error=str(e))
         print(f"Error processing job {job_id}: {e}")
+
+@app.websocket("/ws/{job_id}")
+async def websocket_endpoint(websocket: WebSocket, job_id: str):
+    await manager.connect(job_id, websocket)
+    try:
+        while True:
+            # Keep the connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(job_id)
+        print(f"WebSocket disconnected for job_id: {job_id}")
 
 @app.post("/render", response_model=JobResponse)
 async def render_animation(
@@ -396,7 +334,7 @@ async def render_animation(
     Returns a job ID that can be used to check status and download the result.
     """
     # Generate a unique job ID
-    job_id = str(uuid.uuid4())
+    job_id = animation_request.job_id if animation_request.job_id else str(uuid.uuid4())
     
     # Store job parameters and initial status
     job_status[job_id] = {
