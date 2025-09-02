@@ -23,9 +23,28 @@ import CssBaseline from '@mui/material/CssBaseline';
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8001";
 
-const darkTheme = createTheme({
+const theme = createTheme({
   palette: {
     mode: 'dark',
+    primary: {
+      main: '#2196f3',
+    },
+    secondary: {
+      main: '#f50057',
+    },
+    background: {
+      default: '#121212',
+      paper: '#1e1e1e',
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  typography: {
+    fontFamily: 'Inter, sans-serif',
+    h3: {
+      fontWeight: 700,
+    },
   },
 });
 
@@ -141,7 +160,7 @@ function AnimationRenderer() {
 
       <Grid container spacing={4} sx={{ mt: 4 }}>
         <Grid item xs={12} md={6}>
-          <Card>
+          <Card sx={{ boxShadow: 3 }}>
             <CardHeader title="Configuration" />
             <CardContent>
               <form onSubmit={handleSubmit}>
@@ -234,6 +253,7 @@ function AnimationRenderer() {
                       fullWidth
                       disabled={isLoading}
                       startIcon={isLoading && <CircularProgress size={20} />}
+                      sx={{ py: 1.5 }}
                     >
                       {isLoading ? 'Processing...' : 'Render Animation'}
                     </Button>
@@ -248,7 +268,7 @@ function AnimationRenderer() {
             {error && <Alert severity="error">{error}</Alert>}
 
             {jobId && jobStatus && (
-              <Card>
+              <Card sx={{ boxShadow: 3 }}>
                 <CardHeader title="Job Status" />
                 <CardContent>
                   <Typography><strong>Job ID:</strong> {jobId}</Typography>
@@ -259,10 +279,10 @@ function AnimationRenderer() {
             )}
 
             {videoUrl && (
-              <Card>
+              <Card sx={{ boxShadow: 3 }}>
                 <CardHeader title="Result" />
                 <CardContent>
-                  <video controls width="100%">
+                  <video controls width="100%" style={{ borderRadius: '8px' }}>
                     <source src={videoUrl} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
@@ -286,7 +306,7 @@ function AnimationRenderer() {
 
 function App() {
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <AnimationRenderer />
     </ThemeProvider>

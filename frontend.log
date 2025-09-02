@@ -1,0 +1,10 @@
+
+> animation-converter-frontend@0.0.0 dev
+> vite
+
+11:45:42 AM [vite] (client) Re-optimizing dependencies because lockfile has changed
+
+  VITE v6.2.2  ready in 523 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
