@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // API and WebSocket URLs
-const API_URL = "http://localhost:8000";
-const WS_URL = "ws://localhost:8000";
+const API_URL = "http://localhost:8001";
+const WS_URL = "ws://localhost:8001";
 
 function AnimationRenderer() {
   const [formData, setFormData] = useState({

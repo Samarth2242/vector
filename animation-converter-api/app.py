@@ -60,14 +60,13 @@ app.add_middleware(
 job_status = {}
 
 class AnimationRequest(BaseModel):
-    job_id: Optional[str] = Field(None, description="Optional job ID")
-    input_code: str
-    input_type: str
-    duration: float
-    bitrate: Optional[str]
-    scale_factor: Optional[float]
-    width: Optional[int]
-    height: Optional[int]
+    input_code: str = Field(..., description="SVG or HTML code to animate")
+    input_type: str = Field(..., description="Type of input (svg or html)")
+    duration: float = Field(5.0, description="Duration of animation capture in seconds", ge=1, le=60)
+    bitrate: Optional[str] = Field("8000k", description="Video bitrate (e.g., '8000k')")
+    scale_factor: Optional[float] = Field(2.0, description="Device scale factor for rendering (1.0-4.0)", ge=1.0, le=4.0)
+    width: Optional[int] = Field(800, description="Output width in pixels", ge=100, le=3840)
+    height: Optional[int] = Field(500, description="Output height in pixels", ge=100, le=2160)
 
 class JobResponse(BaseModel):
     job_id: str
@@ -234,7 +233,7 @@ async def animation_to_mp4(input_code: str, input_type: str, duration_seconds: f
     """
     width, height = frame_size
     
-    # Use the synchronous Selenium function
+    # Use the playwright function
     frames, fps = await capture_animation_frames_playwright(
         input_code, input_type, duration_seconds, width, height, target_fps, device_scale_factor
     )
@@ -243,7 +242,6 @@ async def animation_to_mp4(input_code: str, input_type: str, duration_seconds: f
         raise ValueError("No frames were captured. Check your input and try again.")
     
     print(f"Creating high-quality video clip from {len(frames)} frames at {fps} FPS...")
-    print("This is the updated code.")
     
     # Create the clip with the exact FPS specified
     clip = ImageSequenceClip(frames, fps=fps)
@@ -334,7 +332,7 @@ async def render_animation(
     Returns a job ID that can be used to check status and download the result.
     """
     # Generate a unique job ID
-    job_id = animation_request.job_id if animation_request.job_id else str(uuid.uuid4())
+    job_id = str(uuid.uuid4())
     
     # Store job parameters and initial status
     job_status[job_id] = {
@@ -426,4 +424,4 @@ async def startup_event():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
