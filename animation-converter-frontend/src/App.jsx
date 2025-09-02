@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Film } from "lucide-react";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 // API and WebSocket URLs
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
@@ -27,9 +35,7 @@ function AnimationRenderer() {
   const [videoUrl, setVideoUrl] = useState(null);
   const ws = useRef(null);
 
-  // Handle form input changes
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const handleInputChange = (name, value) => {
     setFormData({
       ...formData,
       [name]:
@@ -42,7 +48,6 @@ function AnimationRenderer() {
     });
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -54,16 +59,10 @@ function AnimationRenderer() {
     try {
       const response = await fetch(`${API_URL}/render`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
       const data = await response.json();
       setJobId(data.job_id);
     } catch (err) {
@@ -73,21 +72,14 @@ function AnimationRenderer() {
     }
   };
 
-  // WebSocket connection for real-time status updates
   useEffect(() => {
     if (!jobId) return;
-
     const socketUrl = `${WS_URL}/ws/${jobId}`;
     ws.current = new WebSocket(socketUrl);
-
-    ws.current.onopen = () => {
-      console.log("WebSocket connection established");
-    };
-
+    ws.current.onopen = () => console.log("WebSocket connected");
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
       setJobStatus(data);
-
       if (data.status === 'completed') {
         setVideoUrl(`${API_URL}/download/${jobId}`);
         ws.current.close();
@@ -96,28 +88,15 @@ function AnimationRenderer() {
         ws.current.close();
       }
     };
-
-    ws.current.onclose = () => {
-      console.log("WebSocket connection closed");
-    };
-
-    ws.current.onerror = (err) => {
-      console.error("WebSocket error:", err);
-      setError("WebSocket connection error.");
-    };
-
-    // Clean up the WebSocket connection on component unmount or when jobId changes
+    ws.current.onclose = () => console.log("WebSocket disconnected");
+    ws.current.onerror = (err) => setError("WebSocket connection error.");
     return () => {
-      if (ws.current) {
-        ws.current.close();
-      }
+      if (ws.current) ws.current.close();
     };
   }, [jobId]);
 
-  // Clean up job data when done
   const handleCleanup = async () => {
     if (!jobId) return;
-
     try {
       await fetch(`${API_URL}/clean/${jobId}`);
       setJobId(null);
@@ -129,178 +108,181 @@ function AnimationRenderer() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-6">SVG/HTML Animation Renderer</h1>
-
-      <form onSubmit={handleSubmit} className="space-y-6 mb-8">
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Input Type
-            <select
-              name="input_type"
-              value={formData.input_type}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-            >
-              <option value="svg">SVG</option>
-              <option value="html">HTML</option>
-            </select>
-          </label>
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center p-4">
+      <div className="w-full max-w-6xl">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
         </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Input Code
-            <textarea
-              name="input_code"
-              value={formData.input_code}
-              onChange={handleInputChange}
-              rows="10"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border font-mono text-sm"
-              required
-            />
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Duration (seconds)
-              <input
-                type="number"
-                name="duration"
-                value={formData.duration}
-                onChange={handleInputChange}
-                min="1"
-                max="60"
-                step="0.5"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                required
-              />
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Bitrate
-              <select
-                name="bitrate"
-                value={formData.bitrate}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-              >
-                <option value="4000k">Low (4000k)</option>
-                <option value="8000k">Medium (8000k)</option>
-                <option value="16000k">High (16000k)</option>
-                <option value="24000k">Ultra (24000k)</option>
-              </select>
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Scale Factor
-              <input
-                type="number"
-                name="scale_factor"
-                value={formData.scale_factor}
-                onChange={handleInputChange}
-                min="1"
-                max="4"
-                step="0.5"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-              />
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Width × Height
-              <div className="flex space-x-2">
-                <input
-                  type="number"
-                  name="width"
-                  value={formData.width}
-                  onChange={handleInputChange}
-                  min="100"
-                  max="3840"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                />
-                <span className="mt-3">×</span>
-                <input
-                  type="number"
-                  name="height"
-                  value={formData.height}
-                  onChange={handleInputChange}
-                  min="100"
-                  max="2160"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                />
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <button
-            type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Processing...' : 'Render Animation'}
-          </button>
-        </div>
-      </form>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-          <strong className="font-bold">Error: </strong>
-          <span className="block sm:inline">{error}</span>
-        </div>
-      )}
-
-      {jobId && jobStatus && (
-        <div className="border rounded-md p-4 mb-4">
-          <h2 className="text-lg font-semibold mb-2">Job Status</h2>
-          <p>
-            <strong>Job ID:</strong> {jobId}
+        <header className="my-8 text-center">
+          <h1 className="text-4xl font-bold tracking-tight flex items-center justify-center">
+            <Film className="mr-3 h-10 w-10" />
+            Animation Converter
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Convert your SVG and HTML animations to MP4 videos with ease.
           </p>
-          <p>
-            <strong>Status:</strong> {jobStatus.status}
-          </p>
-          {jobStatus.status === 'processing' && (
-            <div className="w-full bg-gray-200 rounded-full h-2.5 my-4">
-              <div className="bg-blue-600 h-2.5 rounded-full w-1/2"></div>
-            </div>
-          )}
-        </div>
-      )}
+        </header>
 
-      {videoUrl && (
-        <div className="border rounded-md p-4">
-          <h2 className="text-lg font-semibold mb-4">Result</h2>
-          <video controls className="w-full border rounded mb-4">
-            <source src={videoUrl} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuration</CardTitle>
+              <CardDescription>
+                Provide your animation code and configure the output settings.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="input_type">Input Type</Label>
+                  <Select
+                    value={formData.input_type}
+                    onValueChange={(value) => handleInputChange('input_type', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select input type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="svg">SVG</SelectItem>
+                      <SelectItem value="html">HTML</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          <div className="flex space-x-2">
-            <a
-              href={videoUrl}
-              download
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Download Video
-            </a>
-            <button
-              onClick={handleCleanup}
-              className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
-            >
-              Clear Results
-            </button>
+                <div className="space-y-2">
+                  <Label htmlFor="input_code">Input Code</Label>
+                  <Textarea
+                    id="input_code"
+                    name="input_code"
+                    value={formData.input_code}
+                    onChange={(e) => handleInputChange('input_code', e.target.value)}
+                    rows="12"
+                    className="font-mono text-sm"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="duration">Duration (s)</Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      name="duration"
+                      value={formData.duration}
+                      onChange={(e) => handleInputChange('duration', e.target.value)}
+                      min="1" max="60" step="0.5" required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bitrate">Bitrate</Label>
+                    <Select
+                      value={formData.bitrate}
+                      onValueChange={(value) => handleInputChange('bitrate', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select bitrate" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4000k">Low (4000k)</SelectItem>
+                        <SelectItem value="8000k">Medium (8000k)</SelectItem>
+                        <SelectItem value="16000k">High (16000k)</SelectItem>
+                        <SelectItem value="24000k">Ultra (24000k)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="scale_factor">Scale Factor</Label>
+                    <Input
+                      id="scale_factor"
+                      type="number"
+                      name="scale_factor"
+                      value={formData.scale_factor}
+                      onChange={(e) => handleInputChange('scale_factor', e.target.value)}
+                      min="1" max="4" step="0.5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Dimensions (W×H)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        name="width"
+                        value={formData.width}
+                        onChange={(e) => handleInputChange('width', e.target.value)}
+                        min="100" max="3840"
+                      />
+                      <span>×</span>
+                      <Input
+                        type="number"
+                        name="height"
+                        value={formData.height}
+                        onChange={(e) => handleInputChange('height', e.target.value)}
+                        min="100" max="2160"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? 'Processing...' : 'Render Animation'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-8">
+            {error && (
+              <Card className="bg-destructive text-destructive-foreground">
+                <CardHeader>
+                  <CardTitle>Error</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>{error}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {jobId && jobStatus && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Job Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p><strong>Job ID:</strong> {jobId}</p>
+                  <p><strong>Status:</strong> {jobStatus.status}</p>
+                  {jobStatus.status === 'processing' && (
+                    <div className="w-full bg-muted rounded-full h-2.5 my-4 overflow-hidden">
+                      <div className="bg-primary h-2.5 rounded-full w-full animate-pulse"></div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {videoUrl && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Result</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <video controls className="w-full rounded-md border mb-4">
+                    <source src={videoUrl} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2">
+                   <Button variant="outline" onClick={handleCleanup}>
+                    Clear Results
+                  </Button>
+                  <a href={videoUrl} download>
+                    <Button>Download Video</Button>
+                  </a>
+                </CardFooter>
+              </Card>
+            )}
           </div>
-        </div>
-      )}
+        </main>
+      </div>
     </div>
   );
 }
