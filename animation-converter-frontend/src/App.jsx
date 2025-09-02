@@ -1,16 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Film } from "lucide-react";
-import { ThemeToggle } from "./components/ThemeToggle";
+import {
+  Container,
+  Typography,
+  Grid,
+  TextField,
+  Button,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Card,
+  CardContent,
+  CardHeader,
+  CircularProgress,
+  Box,
+  Alert,
+} from '@mui/material';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 
 // API and WebSocket URLs
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8001";
+
+const darkTheme = createTheme({
+  palette: {
+    mode: 'dark',
+  },
+});
 
 function AnimationRenderer() {
   const [formData, setFormData] = useState({
@@ -35,17 +52,23 @@ function AnimationRenderer() {
   const [videoUrl, setVideoUrl] = useState(null);
   const ws = useRef(null);
 
-  const handleInputChange = (name, value) => {
-    setFormData({
-      ...formData,
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
       [name]:
-        name === 'duration' ||
-        name === 'scale_factor' ||
-        name === 'width' ||
-        name === 'height'
-          ? parseFloat(value)
-          : value
-    });
+        ['duration', 'scale_factor', 'width', 'height'].includes(name)
+          ? parseFloat(value) || 0
+          : value,
+    }));
+  };
+
+  const handleSelectChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -108,183 +131,166 @@ function AnimationRenderer() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col items-center p-4">
-      <div className="w-full max-w-6xl">
-        <div className="absolute top-4 right-4">
-          <ThemeToggle />
-        </div>
-        <header className="my-8 text-center">
-          <h1 className="text-4xl font-bold tracking-tight flex items-center justify-center">
-            <Film className="mr-3 h-10 w-10" />
-            Animation Converter
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Convert your SVG and HTML animations to MP4 videos with ease.
-          </p>
-        </header>
+    <Container maxWidth="lg" sx={{ my: 4 }}>
+      <Typography variant="h3" component="h1" gutterBottom align="center">
+        Animation Converter
+      </Typography>
+      <Typography variant="subtitle1" gutterBottom align="center" color="text.secondary">
+        Convert your SVG and HTML animations to MP4 videos with ease.
+      </Typography>
 
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <Grid container spacing={4} sx={{ mt: 4 }}>
+        <Grid item xs={12} md={6}>
           <Card>
-            <CardHeader>
-              <CardTitle>Configuration</CardTitle>
-              <CardDescription>
-                Provide your animation code and configure the output settings.
-              </CardDescription>
-            </CardHeader>
+            <CardHeader title="Configuration" />
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="input_type">Input Type</Label>
-                  <Select
-                    value={formData.input_type}
-                    onValueChange={(value) => handleInputChange('input_type', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select input type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="svg">SVG</SelectItem>
-                      <SelectItem value="html">HTML</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="input_code">Input Code</Label>
-                  <Textarea
-                    id="input_code"
-                    name="input_code"
-                    value={formData.input_code}
-                    onChange={(e) => handleInputChange('input_code', e.target.value)}
-                    rows="12"
-                    className="font-mono text-sm"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duration (s)</Label>
-                    <Input
-                      id="duration"
-                      type="number"
+              <form onSubmit={handleSubmit}>
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth>
+                      <InputLabel>Input Type</InputLabel>
+                      <Select
+                        name="input_type"
+                        value={formData.input_type}
+                        label="Input Type"
+                        onChange={handleSelectChange}
+                      >
+                        <MenuItem value="svg">SVG</MenuItem>
+                        <MenuItem value="html">HTML</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      name="input_code"
+                      label="Input Code"
+                      multiline
+                      rows={12}
+                      value={formData.input_code}
+                      onChange={handleInputChange}
+                      fullWidth
+                      variant="outlined"
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField
                       name="duration"
-                      value={formData.duration}
-                      onChange={(e) => handleInputChange('duration', e.target.value)}
-                      min="1" max="60" step="0.5" required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bitrate">Bitrate</Label>
-                    <Select
-                      value={formData.bitrate}
-                      onValueChange={(value) => handleInputChange('bitrate', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select bitrate" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="4000k">Low (4000k)</SelectItem>
-                        <SelectItem value="8000k">Medium (8000k)</SelectItem>
-                        <SelectItem value="16000k">High (16000k)</SelectItem>
-                        <SelectItem value="24000k">Ultra (24000k)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="scale_factor">Scale Factor</Label>
-                    <Input
-                      id="scale_factor"
+                      label="Duration (s)"
                       type="number"
-                      name="scale_factor"
-                      value={formData.scale_factor}
-                      onChange={(e) => handleInputChange('scale_factor', e.target.value)}
-                      min="1" max="4" step="0.5"
+                      value={formData.duration}
+                      onChange={handleInputChange}
+                      fullWidth
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Dimensions (W×H)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
+                  </Grid>
+                  <Grid item xs={6}>
+                  <FormControl fullWidth>
+                      <InputLabel>Bitrate</InputLabel>
+                      <Select
+                        name="bitrate"
+                        value={formData.bitrate}
+                        label="Bitrate"
+                        onChange={handleSelectChange}
+                      >
+                        <MenuItem value="4000k">Low (4000k)</MenuItem>
+                        <MenuItem value="8000k">Medium (8000k)</MenuItem>
+                        <MenuItem value="16000k">High (16000k)</MenuItem>
+                        <MenuItem value="24000k">Ultra (24000k)</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField
+                      name="scale_factor"
+                      label="Scale Factor"
+                      type="number"
+                      value={formData.scale_factor}
+                      onChange={handleInputChange}
+                      fullWidth
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TextField
                         name="width"
-                        value={formData.width}
-                        onChange={(e) => handleInputChange('width', e.target.value)}
-                        min="100" max="3840"
-                      />
-                      <span>×</span>
-                      <Input
+                        label="Width"
                         type="number"
-                        name="height"
-                        value={formData.height}
-                        onChange={(e) => handleInputChange('height', e.target.value)}
-                        min="100" max="2160"
+                        value={formData.width}
+                        onChange={handleInputChange}
                       />
-                    </div>
-                  </div>
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Processing...' : 'Render Animation'}
-                </Button>
+                      <Typography>× </Typography>
+                      <TextField
+                        name="height"
+                        label="Height"
+                        type="number"
+                        value={formData.height}
+                        onChange={handleInputChange}
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      fullWidth
+                      disabled={isLoading}
+                      startIcon={isLoading && <CircularProgress size={20} />}
+                    >
+                      {isLoading ? 'Processing...' : 'Render Animation'}
+                    </Button>
+                  </Grid>
+                </Grid>
               </form>
             </CardContent>
           </Card>
-
-          <div className="space-y-8">
-            {error && (
-              <Card className="bg-destructive text-destructive-foreground">
-                <CardHeader>
-                  <CardTitle>Error</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>{error}</p>
-                </CardContent>
-              </Card>
-            )}
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {error && <Alert severity="error">{error}</Alert>}
 
             {jobId && jobStatus && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Job Status</CardTitle>
-                </CardHeader>
+                <CardHeader title="Job Status" />
                 <CardContent>
-                  <p><strong>Job ID:</strong> {jobId}</p>
-                  <p><strong>Status:</strong> {jobStatus.status}</p>
-                  {jobStatus.status === 'processing' && (
-                    <div className="w-full bg-muted rounded-full h-2.5 my-4 overflow-hidden">
-                      <div className="bg-primary h-2.5 rounded-full w-full animate-pulse"></div>
-                    </div>
-                  )}
+                  <Typography><strong>Job ID:</strong> {jobId}</Typography>
+                  <Typography><strong>Status:</strong> {jobStatus.status}</Typography>
+                  {jobStatus.status === 'processing' && <CircularProgress sx={{ mt: 2 }} />}
                 </CardContent>
               </Card>
             )}
 
             {videoUrl && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Result</CardTitle>
-                </CardHeader>
+                <CardHeader title="Result" />
                 <CardContent>
-                  <video controls className="w-full rounded-md border mb-4">
+                  <video controls width="100%">
                     <source src={videoUrl} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
                 </CardContent>
-                <CardFooter className="flex justify-end gap-2">
-                   <Button variant="outline" onClick={handleCleanup}>
+                <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                   <Button variant="outlined" onClick={handleCleanup}>
                     Clear Results
                   </Button>
-                  <a href={videoUrl} download>
-                    <Button>Download Video</Button>
-                  </a>
-                </CardFooter>
+                  <Button variant="contained" href={videoUrl} download>
+                    Download Video
+                  </Button>
+                </Box>
               </Card>
             )}
-          </div>
-        </main>
-      </div>
-    </div>
+          </Box>
+        </Grid>
+      </Grid>
+    </Container>
   );
 }
 
-export default AnimationRenderer;
+function App() {
+  return (
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
+      <AnimationRenderer />
+    </ThemeProvider>
+  );
+}
+
+export default App;
