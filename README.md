@@ -37,3 +37,22 @@ Then, start the frontend development server:
 npm run dev
 ```
 The command will output a local URL (usually `http://localhost:5173`) that you can open in your web browser to use the application.
+
+## Deployment
+
+### Frontend (Vercel)
+
+1.  Push your code to a GitHub repository.
+2.  Go to [Vercel](https://vercel.com) and create a new project.
+3.  Connect your GitHub repository.
+4.  Vercel will automatically detect that you are using Vite and will configure the build settings. The `vercel.json` file in the `animation-converter-frontend` directory will ensure the correct settings are used.
+5.  Deploy!
+
+### Backend (Fly.io)
+
+1.  Install the Fly.io CLI by following the instructions [here](https://fly.io/docs/hands-on/install-flyctl/).
+2.  Log in to the Fly CLI: `fly auth login`.
+3.  Launch the app: `fly launch --cwd animation-converter-api`. This will create a `fly.toml` file with the configuration for your app.
+4.  Deploy the app: `fly deploy --cwd animation-converter-api`.
+
+Your backend will be deployed to a public URL that you can use in your frontend. You will need to update the `API_URL` and `WS_URL` in `animation-converter-frontend/src/App.jsx` to point to your new backend URL.
